@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\IoTFarmSystem.UserManagement.Application\IoTFarmSystem.UserManagement.Application.csproj" />
+    <ProjectReference Include="..\..\SharedKernel\IoTFarmSystem.SharedKernel\IoTFarmSystem.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
