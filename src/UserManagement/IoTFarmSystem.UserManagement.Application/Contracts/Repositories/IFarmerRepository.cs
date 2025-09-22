@@ -12,11 +12,12 @@ namespace IoTFarmSystem.UserManagement.Application.Contracts.Repositories
         Task<Farmer?> GetByIdAsync(Guid farmerId, CancellationToken cancellationToken = default);
         Task<Farmer?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<Farmer>> GetByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+        Task<Farmer?> GetByIdentityUserIdAsync(string identityUserId, CancellationToken cancellationToken = default);
 
         // Queries including roles/permissions
         Task<Farmer?> GetWithRolesAsync(Guid farmerId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<Farmer>> GetByRoleAsync(string roleName, CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<Farmer>> GetByPermissionAsync(string permissionName, CancellationToken cancellationToken = default);
+        Task<Farmer?> GetWithPermissionsAsync(Guid farmerId, CancellationToken cancellationToken = default);
 
         // CRUD operations
         Task AddAsync(Farmer farmer, CancellationToken cancellationToken = default);

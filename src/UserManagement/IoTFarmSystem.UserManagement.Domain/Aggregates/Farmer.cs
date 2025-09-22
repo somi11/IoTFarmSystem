@@ -28,26 +28,27 @@ public class Farmer
     }
 
     public void AssignRole(Role role) =>
-        _roles.Add(new UserRole(this.Id, role.Id));
+        _roles.Add(new UserRole(this.Id, role.Id ,role));
 
     public void RevokeRole(Role role)
     {
         var userRole = _roles.FirstOrDefault(ur => ur.RoleId == role.Id);
         if (userRole != null)
             _roles.Remove(userRole);
-    }   
+    }
 
     public void GrantPermission(Permission permission) =>
-        _permissions.Add(new UserPermission(this.Id, permission.Id));
+        _permissions.Add(new UserPermission(this.Id, permission.Id, permission.Name , permission));
 
-    public void RevokePermission(Permission permission)
+
+    public void RevokePermission(string permissionName)
     {
-        var userPermission = _permissions.FirstOrDefault(up => up.PermissionId == permission.Id);
+        var userPermission = _permissions.FirstOrDefault(up => up.PermissionName == permissionName);
         if (userPermission != null)
             _permissions.Remove(userPermission);
     }
 
-public void UpdateName(string name)
+    public void UpdateName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
