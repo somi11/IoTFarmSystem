@@ -27,9 +27,12 @@ public class Farmer
         Name = name ?? throw new ArgumentNullException(nameof(name));
     }
 
-    public void AssignRole(Role role) =>
-        _roles.Add(new UserRole(this.Id, role.Id ,role));
-
+    public void AssignRole(Role role)
+    {
+        if (_roles.Any(r => r.RoleId == role.Id))
+            return; // already assigned
+        _roles.Add(new UserRole(Id, role.Id , role));
+    }
     public void RevokeRole(Role role)
     {
         var userRole = _roles.FirstOrDefault(ur => ur.RoleId == role.Id);
@@ -37,9 +40,12 @@ public class Farmer
             _roles.Remove(userRole);
     }
 
-    public void GrantPermission(Permission permission) =>
-        _permissions.Add(new UserPermission(this.Id, permission.Id, permission.Name , permission));
-
+    public void GrantPermission(Permission permission)
+    {
+        if (_permissions.Any(p => p.PermissionId == permission.Id))
+            return;
+        _permissions.Add(new UserPermission(this.Id, permission.Id, permission.Name, permission));
+    }
 
     public void RevokePermission(string permissionName)
     {
