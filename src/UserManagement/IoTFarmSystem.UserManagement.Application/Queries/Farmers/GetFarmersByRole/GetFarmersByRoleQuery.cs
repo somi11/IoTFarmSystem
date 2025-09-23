@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.UserManagement.Application.DTOs;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,5 +8,5 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmersByRole
 {
-    public record GetFarmersByRoleQuery(string RoleName) : IRequest<IReadOnlyList<Farmer>>;
+    public record GetFarmersByRoleQuery(Guid TenantId, string RoleName) : IRequest<IReadOnlyList<FarmerDto>>;
 }

@@ -69,5 +69,23 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Identity
                 throw new InvalidOperationException(
                     $"Failed to remove role '{roleName}' from user '{identityUserId}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
         }
+        public async Task UpdateEmailAsync(string identityUserId, string newEmail, CancellationToken cancellationToken = default)
+        {
+            var user = await _userManager.FindByIdAsync(identityUserId)
+                       ?? throw new KeyNotFoundException($"User '{identityUserId}' not found");
+
+            // Optional: check if new email already exists
+            var existingUser = await _userManager.FindByEmailAsync(newEmail);
+            if (existingUser != null && existingUser.Id != user.Id)
+                throw new InvalidOperationException($"Email '{newEmail}' is already taken.");
+
+            user.Email = newEmail;
+            user.UserName = newEmail; 
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(
+                    $"Failed to update email: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+        }
     }
 }

@@ -32,8 +32,12 @@ namespace IoTFarmSystem.Host.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateFarmerCommand command)
         {
-            var farmerId = await _mediator.Send(command);
-            return CreatedAtAction(nameof(GetById), new { id = farmerId }, null);
+            var result = await _mediator.Send(command);
+
+            if (!result.Success)
+                return BadRequest(result.Error);
+
+            return CreatedAtAction(nameof(GetById), new { id = result.Value }, null);
         }
 
         // GET farmer by Id
@@ -55,10 +59,10 @@ namespace IoTFarmSystem.Host.Controllers
         }
 
         // GET farmers by Role
-        [HttpGet("by-role/{roleName}")]
-        public async Task<IActionResult> GetByRole(string roleName)
+        [HttpGet("{tenantId}/farmers/by-role/{roleName}")]
+        public async Task<IActionResult> GetByRole(Guid tenantId, string roleName)
         {
-            var farmers = await _mediator.Send(new GetFarmersByRoleQuery(roleName));
+            var farmers = await _mediator.Send(new GetFarmersByRoleQuery(tenantId, roleName));
             return Ok(farmers);
         }
 

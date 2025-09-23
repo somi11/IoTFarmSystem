@@ -1,4 +1,5 @@
-﻿using IoTFarmSystem.SharedKernel.Security;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using IoTFarmSystem.SharedKernel.Security;
 using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
 using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
@@ -7,7 +8,7 @@ using MediatR;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
 {
-    public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, Guid>
+    public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, Result<Guid>>
     {
         private readonly IFarmerRepository _farmerRepository;
         private readonly IUserService _userService;
@@ -29,10 +30,10 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
             _tenantRepository = tenantRepository;
         }
 
-        public async Task<Guid> Handle(CreateFarmerCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Guid>> Handle(CreateFarmerCommand request, CancellationToken cancellationToken)
         {
             if (request.Roles?.Contains(SystemRoles.SYSTEM_ADMIN) == true)
-                throw new InvalidOperationException("SystemAdmin cannot be created as a Farmer.");
+                return Result<Guid>.Fail("SystemAdmin cannot be created as a Farmer.");
 
             await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
@@ -45,33 +46,55 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
                 Tenant tenant;
                 if (request.TenantId.HasValue)
                 {
-                    tenant = await _tenantRepository.GetByIdAsync(request.TenantId.Value, cancellationToken)
-                             ?? throw new KeyNotFoundException($"Tenant '{request.TenantId}' not found");
+                    tenant = await _tenantRepository.GetByIdAsync(request.TenantId.Value, cancellationToken);
+                    if (tenant is null)
+                        return Result<Guid>.Fail($"Tenant '{request.TenantId}' not found");
                 }
                 else
                 {
-                    tenant = new Tenant(request.Name + " Farm");
+                    var tenantName = request.TenantName ?? request.Name + " Farm";
+                    tenant = new Tenant(tenantName);
                     await _tenantRepository.AddAsync(tenant, cancellationToken);
                 }
 
-                // 3. Register Farmer under Tenant
-                var farmer = tenant.RegisterFarmer(identityUserId, request.Email);
+                // 3. Check Owner rule
+                if (request.Roles?.Contains(SystemRoles.TENANT_OWNER) == true && tenant.HasOwner())
+                    return Result<Guid>.Fail("Each tenant can only have one owner.");
 
-                // 4. Assign roles and permissions in-memory only (no DB updates yet)
+                // 4. Register Farmer
+                var farmer = tenant.RegisterFarmer(identityUserId, request.Email, request.Name);
+
+                // 5. Assign roles and permissions
                 if (request.Roles != null)
                 {
-                    foreach (var roleName in request.Roles.Distinct())
+                    var distinctRoles = request.Roles.Distinct().ToList();
+
+                    // 1. Validate roles
+                    var unknownRoles = distinctRoles
+                        .Where(r => !RolePermissionsMap.Map.ContainsKey(r))
+                        .ToList();
+
+                    if (unknownRoles.Any())
+                        return Result<Guid>.Fail($"Unknown roles: {string.Join(", ", unknownRoles)}");
+
+                    // 2. Fetch all role entities
+                    var roles = new List<Role>();
+                    foreach (var roleName in distinctRoles)
                     {
-                        if (!RolePermissionsMap.Map.ContainsKey(roleName))
-                            continue; // skip invalid roles
+                        var role = await _roleRepository.GetByNameAsync(roleName, cancellationToken);
+                        if (role is null)
+                            return Result<Guid>.Fail($"Role '{roleName}' not found in DB");
 
-                        var role = await _roleRepository.GetByNameAsync(roleName, cancellationToken)
-                                   ?? throw new KeyNotFoundException($"Role '{roleName}' not found in DB");
+                        roles.Add(role);
+                    }
 
+                    // 3. Assign roles + permissions
+                    foreach (var role in roles)
+                    {
                         if (!farmer.Roles.Any(r => r.RoleId == role.Id))
-                            farmer.AssignRole(role); // in-memory
+                            farmer.AssignRole(role);
 
-                        foreach (var permName in RolePermissionsMap.Map[roleName].Distinct())
+                        foreach (var permName in RolePermissionsMap.Map[role.Name].Distinct())
                         {
                             if (!farmer.Permissions.Any(p => p.PermissionName == permName))
                                 farmer.GrantPermission(new Permission(permName));
@@ -79,7 +102,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
                     }
                 }
 
-                // 5. Assign explicit permissions in-memory
+                // 6. Explicit permissions
                 if (request.Permissions != null)
                 {
                     var allKernelPermissions = RolePermissionsMap.Map.Values.SelectMany(x => x).ToHashSet();
@@ -93,17 +116,19 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
                     }
                 }
 
-                // 6. Persist farmer with all roles & permissions in a single AddAsync call
+                // 7. Save farmer
                 await _farmerRepository.AddAsync(farmer, cancellationToken);
-
                 await transaction.CommitAsync(cancellationToken);
-                return farmer.Id;
+
+                return Result<Guid>.Ok(farmer.Id);
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync(cancellationToken);
-                throw;
+                return Result<Guid>.Fail($"Unexpected error: {ex.Message}");
             }
         }
+
+
     }
 }

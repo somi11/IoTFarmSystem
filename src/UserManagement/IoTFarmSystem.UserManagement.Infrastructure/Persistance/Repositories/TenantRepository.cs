@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using IoTFarmSystem.UserManagement.Domain.Entites;
+using Microsoft.EntityFrameworkCore;
 
 namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 {
@@ -17,9 +18,14 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 
         public async Task<Tenant?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _dbContext.Tenants
-                .Include(t => t.Farmers)
-                .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+           return await _dbContext.Tenants
+             .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
+                 .ThenInclude(f => EF.Property<List<UserRole>>(f, "_roles"))
+                     .ThenInclude(ur => ur.Role)
+             .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
+                 .ThenInclude(f => EF.Property<List<UserPermission>>(f, "_permissions"))
+             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
         }
 
         public async Task<Tenant?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
@@ -89,7 +95,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 
         public async Task AddFarmerAsync(Tenant tenant, Farmer farmer, CancellationToken cancellationToken = default)
         {
-            tenant.RegisterFarmer(farmer.IdentityUserId, farmer.Email);
+            tenant.RegisterFarmer(farmer.IdentityUserId, farmer.Email , farmer.Name);
             _dbContext.Tenants.Update(tenant);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }

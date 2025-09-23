@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,6 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
        string? TenantName = null,   // optional
        IEnumerable<string>? Roles = null,
        IEnumerable<string>? Permissions = null
- ) : IRequest<Guid>;
+ ) : IRequest<Result<Guid>>;
 
 }

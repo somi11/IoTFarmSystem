@@ -1,4 +1,5 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
+using IoTFarmSystem.UserManagement.Application.DTOs;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerByEmail
 {
-    public class GetFarmerByEmailQueryHandler : IRequestHandler<GetFarmerByEmailQuery, Farmer?>
+    public class GetFarmerByEmailQueryHandler : IRequestHandler<GetFarmerByEmailQuery, FarmerDto?>
     {
         private readonly IFarmerRepository _farmerRepository;
 
@@ -17,7 +18,7 @@ namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerByEm
             _farmerRepository = farmerRepository;
         }
 
-        public async Task<Farmer?> Handle(GetFarmerByEmailQuery request, CancellationToken cancellationToken) =>
+        public async Task<FarmerDto?> Handle(GetFarmerByEmailQuery request, CancellationToken cancellationToken) =>
             await _farmerRepository.GetByEmailAsync(request.Email, cancellationToken);
     }
 }

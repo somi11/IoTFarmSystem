@@ -33,5 +33,11 @@ namespace IoTFarmSystem.UserManagement.Application.Contracts.Identity
         /// Removes a role from an existing user.
         /// </summary>
         Task RemoveRoleAsync(string identityUserId, string roleName, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Updates the email address of an existing Identity user.
+        /// </summary>
+        Task UpdateEmailAsync(string identityUserId, string newEmail, CancellationToken cancellationToken = default);
+
     }
 }

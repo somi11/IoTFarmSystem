@@ -5,8 +5,7 @@ using System.Globalization;
 public class Farmer
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
-    public string IdentityUserId { get; private set; }   // Foreign key to AspNetUsers
-
+    public string IdentityUserId { get; private set; }   
     public string Name { get; private set; }
     public string Email { get; private set; }
     public Guid TenantId { get; private set; }
@@ -20,11 +19,12 @@ public class Farmer
 
     private Farmer() { }
 
-    public Farmer(string identityUserId, string email, Guid tenantId)
+    public Farmer(string identityUserId, string email, Guid tenantId, string name)
     {
         IdentityUserId = identityUserId;
         Email = email;
         TenantId = tenantId;
+        Name = name ?? throw new ArgumentNullException(nameof(name));
     }
 
     public void AssignRole(Role role) =>
@@ -53,6 +53,13 @@ public class Farmer
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
         Name = name;
+    }
+    public void UpdateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+
+        Email = email;
     }
     public void Deactivate() => IsActive = false;
     public void Activate() => IsActive = true;
