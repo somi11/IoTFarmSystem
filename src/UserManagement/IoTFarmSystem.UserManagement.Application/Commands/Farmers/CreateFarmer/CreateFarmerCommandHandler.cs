@@ -53,7 +53,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
                 else
                 {
                     var tenantName = request.TenantName ?? request.Name + " Farm";
-                    tenant = new Tenant(tenantName);
+                    tenant = new Tenant(Guid.NewGuid(), tenantName);
                     await _tenantRepository.AddAsync(tenant, cancellationToken);
                 }
 
@@ -62,7 +62,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
                     return Result<Guid>.Fail("Each tenant can only have one owner.");
 
                 // 4. Register Farmer
-                var farmer = tenant.RegisterFarmer(identityUserId, request.Email, request.Name);
+                var farmer = tenant.RegisterFarmer(Guid.NewGuid(),identityUserId, request.Email, request.Name);
 
                 // 5. Assign roles and permissions
                 if (request.Roles != null)
