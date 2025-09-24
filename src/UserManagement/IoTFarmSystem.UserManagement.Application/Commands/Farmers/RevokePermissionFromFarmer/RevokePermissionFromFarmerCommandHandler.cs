@@ -1,10 +1,8 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using MediatR;
 
-namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.RevokePermission
+namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.RevokePermissionFromFarmer
 {
-    public record RevokePermissionFromFarmerCommand(Guid FarmerId, string PermissionName) : IRequest<Unit>;
-
     public class RevokePermissionFromFarmerCommandHandler
         : IRequestHandler<RevokePermissionFromFarmerCommand, Unit>
     {
