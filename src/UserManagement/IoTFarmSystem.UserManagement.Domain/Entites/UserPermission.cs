@@ -6,25 +6,22 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Domain.Entites
 {
-    public record UserPermission
+    public class UserPermission
     {
-        public Guid UserId { get; init; }
-        public Guid PermissionId { get; init; }
-        public string PermissionName { get; init; }
-        
-        // Navigation property (not in constructor)
-        public Permission? Permission { get; init; }
+        public Guid UserId { get; private set; }
+        public Guid PermissionId { get; private set; }
+        public string PermissionName { get; private set; }
 
-        // Parameterless constructor for EF Core
-        private UserPermission() { }
+        public Permission? Permission { get; private set; }
 
-        // Public constructor for your own use
-        public UserPermission(Guid userId, Guid permissionId, string permissionName , Permission permission)
+        private UserPermission() { } // EF
+
+        public UserPermission(Guid userId, Guid permissionId, string permissionName, Permission? permission = null)
         {
             UserId = userId;
             PermissionId = permissionId;
             PermissionName = permissionName;
-            Permission = permission;
+            Permission = permission; // optional (navigation only)
         }
     }
 }

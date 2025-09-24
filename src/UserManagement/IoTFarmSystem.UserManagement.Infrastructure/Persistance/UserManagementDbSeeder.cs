@@ -11,23 +11,23 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
             if (await dbContext.Roles.AnyAsync())
                 return;
 
-            // 1. Collect all distinct permissions from RolePermissionsMap
+            // 1. Collect all distinct permissions
             var allPermissionNames = RolePermissionsMap.Map
                 .SelectMany(kvp => kvp.Value)
                 .Distinct()
                 .ToList();
 
-            // Create Permission entities
+            // 2. Create Permission entities with explicit IDs
             var permissions = allPermissionNames
-                .Select(p => new Permission(p))
+                .Select(p => new Permission(Guid.NewGuid(), p))
                 .ToList();
 
             await dbContext.Permissions.AddRangeAsync(permissions);
 
-            // 2. Create roles and attach permissions
+            // 3. Create roles and attach permissions
             foreach (var kvp in RolePermissionsMap.Map)
             {
-                var role = new Role(kvp.Key);
+                var role = new Role(Guid.NewGuid(), kvp.Key);
 
                 foreach (var permName in kvp.Value)
                 {

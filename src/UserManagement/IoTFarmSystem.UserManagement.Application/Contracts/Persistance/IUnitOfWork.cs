@@ -8,10 +8,8 @@ namespace IoTFarmSystem.UserManagement.Application.Contracts.Persistance
 {
     public interface IUnitOfWork : IAsyncDisposable
     {
-        /// <summary>
-        /// Begins a new transaction.
-        /// </summary>
         Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 
     public interface IUnitOfWorkTransaction : IAsyncDisposable

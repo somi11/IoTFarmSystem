@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Domain.Entites
 {
-    public record UserRole
+    public class UserRole
     {
         public Guid UserId { get; init; }
         public Guid RoleId { get; init; }

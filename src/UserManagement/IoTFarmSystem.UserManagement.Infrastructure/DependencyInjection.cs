@@ -1,9 +1,12 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
 using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
+using IoTFarmSystem.UserManagement.Application.Contracts.Services;
+using IoTFarmSystem.UserManagement.Domain.Entites;
 using IoTFarmSystem.UserManagement.Infrastructure.Identity;
 using IoTFarmSystem.UserManagement.Infrastructure.Persistance;
 using IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories;
+using IoTFarmSystem.UserManagement.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +41,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure
             services.AddScoped<IAuthService, AuthService>();      // Authentication service
             services.AddScoped<IJwtService, JwtService>();        // JWT generator
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IPermissionLookupService, PermissionLookupService>();
 
             // Repositories
             services.AddScoped<IRoleRepository, RoleRepository>();

@@ -10,7 +10,7 @@ public class Tenant
 
     private Tenant() { } // EF Core needs this
 
-    // Constructor for creating new Tenant
+    // Constructor for creating new Tenant 
     public Tenant(Guid id, string name)
     {
         if (id == Guid.Empty) throw new ArgumentException("Id cannot be empty", nameof(id));

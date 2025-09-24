@@ -9,8 +9,17 @@ public class Role
     public IReadOnlyCollection<RolePermission> Permissions => _permissions.AsReadOnly();
 
     private Role() { }
-    public Role(string name) => Name = name;
+    public Role(Guid id, string name)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException("Role Id cannot be empty.", nameof(id));
 
-    public void AddPermission(Permission permission) =>
+        Id = id;
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+    }
+    public void AddPermission(Permission permission)
+    {
+        if (_permissions.Any(p => p.PermissionId == permission.Id)) return;
         _permissions.Add(new RolePermission(Id, permission.Id));
+    }
 }

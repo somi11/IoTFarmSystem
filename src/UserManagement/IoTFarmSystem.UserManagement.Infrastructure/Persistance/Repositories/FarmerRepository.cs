@@ -124,97 +124,101 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
             Guid tenantId,
             string roleName,
             CancellationToken cancellationToken = default)
-                {
-                    // Step 1: get farmer ids via a SQL-translatable join (UserRole -> Role -> Farmer)
-                    var farmerIds = await (
-                        from ur in _dbContext.Set<UserRole>()
-                        join r in _dbContext.Set<Role>() on ur.RoleId equals r.Id
-                        join f in _dbContext.Farmers on ur.UserId equals f.Id
-                        where r.Name == roleName && f.TenantId == tenantId
-                        select f.Id
-                    )
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                    if (!farmerIds.Any())
-                        return Array.Empty<FarmerDto>();
-
-                    // Step 2: load farmers with backing-field includes (populate _roles/_permissions)
-                    var farmers = await _dbContext.Farmers
-                        .Where(f => farmerIds.Contains(f.Id))
-                        .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
-                            .ThenInclude(ur => ur.Role)
-                        .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-                            .ThenInclude(up => up.Permission)
-                        .AsNoTracking()
-                        .ToListAsync(cancellationToken);
-
-                    // Step 3: project to DTO in memory (safe and simple)
-                    var result = farmers.Select(f => new FarmerDto
-                    {
-                        Id = f.Id,
-                        TenantId = f.TenantId,
-                        Email = f.Email,
-                        Name = f.Name,
-                        Roles = f.Roles
-                            .Select(rr => rr.Role?.Name)
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .Distinct()
-                            .ToList(),
-                        Permissions = f.Permissions
-                            .Select(p => p.PermissionName)
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .Distinct()
-                            .ToList(),
-                        CreatedAt = null,
-                        LastLogin = null
-                    }).ToList();
-
-                    return result;
-       }
-
-
-
-        public async Task AddAsync(Farmer farmer, CancellationToken cancellationToken = default)
         {
-            await _dbContext.Farmers.AddAsync(farmer, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            // Step 1: get farmer ids via a SQL-translatable join (UserRole -> Role -> Farmer)
+            var farmerIds = await (
+                from ur in _dbContext.Set<UserRole>()
+                join r in _dbContext.Set<Role>() on ur.RoleId equals r.Id
+                join f in _dbContext.Farmers on ur.UserId equals f.Id
+                where r.Name == roleName && f.TenantId == tenantId
+                select f.Id
+            )
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+            if (!farmerIds.Any())
+                return Array.Empty<FarmerDto>();
+
+            // Step 2: load farmers with backing-field includes (populate _roles/_permissions)
+            var farmers = await _dbContext.Farmers
+                .Where(f => farmerIds.Contains(f.Id))
+                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
+                    .ThenInclude(ur => ur.Role)
+                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
+                    .ThenInclude(up => up.Permission)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            // Step 3: project to DTO in memory (safe and simple)
+            var result = farmers.Select(f => new FarmerDto
+            {
+                Id = f.Id,
+                TenantId = f.TenantId,
+                Email = f.Email,
+                Name = f.Name,
+                Roles = f.Roles
+                    .Select(rr => rr.Role?.Name)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct()
+                    .ToList(),
+                Permissions = f.Permissions
+                    .Select(p => p.PermissionName)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct()
+                    .ToList(),
+                CreatedAt = null,
+                LastLogin = null
+            }).ToList();
+
+            return result;
         }
 
-        public async Task UpdateAsync(Farmer farmer, CancellationToken cancellationToken = default)
+
+        // ------------------ Mutating methods (no SaveChanges here) ------------------
+
+        public Task AddAsync(Farmer farmer, CancellationToken cancellationToken = default)
+        {
+            return _dbContext.Farmers.AddAsync(farmer, cancellationToken).AsTask();
+        }
+
+        public Task UpdateAsync(Farmer farmer, CancellationToken cancellationToken = default)
         {
             _dbContext.Farmers.Update(farmer);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteAsync(Farmer farmer, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(Farmer farmer, CancellationToken cancellationToken = default)
         {
             _dbContext.Farmers.Remove(farmer);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
         public Task AssignRoleAsync(Farmer farmer, Role role, CancellationToken cancellationToken = default)
         {
             farmer.AssignRole(role);
-            return UpdateAsync(farmer, cancellationToken);
+            _dbContext.Farmers.Update(farmer);
+            return Task.CompletedTask;
         }
 
         public Task RevokeRoleAsync(Farmer farmer, Role role, CancellationToken cancellationToken = default)
         {
             farmer.RevokeRole(role);
-            return UpdateAsync(farmer, cancellationToken);
+            _dbContext.Farmers.Update(farmer);
+            return Task.CompletedTask;
         }
 
         public Task GrantPermissionAsync(Farmer farmer, Permission permission, CancellationToken cancellationToken = default)
         {
             farmer.GrantPermission(permission);
-            return UpdateAsync(farmer, cancellationToken);
+            _dbContext.Farmers.Update(farmer);
+            return Task.CompletedTask;
         }
 
         public Task RevokePermissionAsync(Farmer farmer, Permission permission, CancellationToken cancellationToken = default)
         {
             farmer.RevokePermission(permission.Name);
-            return UpdateAsync(farmer, cancellationToken);
+            _dbContext.Farmers.Update(farmer);
+            return Task.CompletedTask;
         }
     }
 }

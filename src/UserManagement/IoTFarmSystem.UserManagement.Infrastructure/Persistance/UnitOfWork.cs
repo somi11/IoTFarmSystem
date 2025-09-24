@@ -8,25 +8,31 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
     public class UnitOfWork : IUnitOfWork
     {
         private readonly UserManagementDbContext _dbContext;
-        public DbSet<Permission> Permissions => _dbContext.Permissions;
+
         public UnitOfWork(UserManagementDbContext dbContext)
         {
             _dbContext = dbContext;
         }
 
+        /// <summary>
+        /// Begins a transaction. For in-memory DB, returns a dummy transaction.
+        /// </summary>
         public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
-            // Check if provider supports transactions
             if (_dbContext.Database.IsInMemory())
             {
-                // Return a dummy transaction for in-memory DB
                 return new DummyUnitOfWorkTransaction(_dbContext);
             }
 
-            // Real transaction for relational DBs
             var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
             return new EfCoreUnitOfWorkTransaction(transaction, _dbContext);
         }
+
+        /// <summary>
+        /// Saves all tracked changes in the DbContext.
+        /// </summary>
+        public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+            => await _dbContext.SaveChangesAsync(cancellationToken);
 
         public async ValueTask DisposeAsync() => await _dbContext.DisposeAsync();
 
@@ -72,7 +78,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
 
             public async Task CommitAsync(CancellationToken cancellationToken = default)
             {
-                // Save changes but no real transaction
+                // Just save changes; no real transaction
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
 

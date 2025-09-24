@@ -42,8 +42,11 @@ public class Farmer
 
     public void GrantPermission(Permission permission)
     {
-        if (_permissions.Any(p => p.PermissionId == permission.Id)) return;
-        _permissions.Add(new UserPermission(Id, permission.Id, permission.Name, permission));
+        if (_permissions.Any(p => p.PermissionId == permission.Id))
+            return; // already granted
+
+        // only store reference (Id + Name), not the EF entity
+        _permissions.Add(new UserPermission(Id, permission.Id, permission.Name, null));
     }
 
     public void RevokePermission(string permissionName)

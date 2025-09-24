@@ -1,7 +1,6 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using IoTFarmSystem.UserManagement.Domain.Entites;
 using Microsoft.EntityFrameworkCore;
-using System.Data;
 
 namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 {
@@ -20,64 +19,75 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
         public async Task<Role?> GetByIdAsync(Guid roleId, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Roles
-                 .Include("_permissions")
+                .Include(r => EF.Property<List<RolePermission>>(r, "_permissions"))
+                    .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(r => r.Id == roleId, cancellationToken);
         }
 
         public async Task<Role?> GetByNameAsync(string roleName, CancellationToken cancellationToken = default)
         {
-            return  await _dbContext.Roles
-            .Include("_permissions") // use string name of backing field
-            .FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken);
+            return await _dbContext.Roles
+                .Include(r => EF.Property<List<RolePermission>>(r, "_permissions"))
+                    .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken);
         }
 
         public async Task<IReadOnlyList<Role>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             return await _dbContext.Roles
-                .Include("_permissions")
+                .Include(r => EF.Property<List<RolePermission>>(r, "_permissions"))
+                    .ThenInclude(rp => rp.Permission)
                 .ToListAsync(cancellationToken);
         }
 
         // ========================
-        // CRUD
+        // CRUD (no SaveChanges here!)
         // ========================
         public async Task AddAsync(Role role, CancellationToken cancellationToken = default)
         {
             await _dbContext.Roles.AddAsync(role, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task UpdateAsync(Role role, CancellationToken cancellationToken = default)
+        public Task UpdateAsync(Role role, CancellationToken cancellationToken = default)
         {
-            _dbContext.Roles.Update(role);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (_dbContext.Entry(role).State == EntityState.Detached)
+            {
+                _dbContext.Roles.Update(role);
+            }
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteAsync(Role role, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(Role role, CancellationToken cancellationToken = default)
         {
             _dbContext.Roles.Remove(role);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
         // ========================
         // Domain-level permission management
         // ========================
-        public async Task AddPermissionAsync(Role role, Permission permission, CancellationToken cancellationToken = default)
+        public Task AddPermissionAsync(Role role, Permission permission, CancellationToken cancellationToken = default)
         {
-            role.AddPermission(permission);
-            _dbContext.Roles.Update(role);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (_dbContext.Entry(role).State == EntityState.Detached)
+            {
+                _dbContext.Roles.Attach(role);
+            }
+
+            role.AddPermission(permission); // modifies backing field
+            return Task.CompletedTask; // SaveChanges deferred to UnitOfWork
         }
 
-        public async Task RemovePermissionAsync(Role role, Permission permission, CancellationToken cancellationToken = default)
+        public Task RemovePermissionAsync(Role role, Permission permission, CancellationToken cancellationToken = default)
         {
-            var existing = role.Permissions.FirstOrDefault(p => p.PermissionId == permission.Id);
+            var existing = EF.Property<List<RolePermission>>(role, "_permissions")
+                              .FirstOrDefault(p => p.PermissionId == permission.Id);
+
             if (existing != null)
             {
-                // EF Core tracks RolePermission because it's mapped in DbContext
                 _dbContext.RolePermissions.Remove(existing);
-                await _dbContext.SaveChangesAsync(cancellationToken);
             }
+
+            return Task.CompletedTask; // SaveChanges deferred to UnitOfWork
         }
     }
 }

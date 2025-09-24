@@ -19,7 +19,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Roles.CreateRole
 
         public async Task<Guid> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
         {
-            var role = new Role(request.Name);
+            var role = new Role(Guid.NewGuid(), request.Name);
             await _roleRepository.AddAsync(role, cancellationToken);
             return role.Id;
         }

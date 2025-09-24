@@ -19,7 +19,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Tenants.CreateTenant
 
         public async Task<Guid> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
         {
-            var tenant = new Tenant(request.Name);
+            var tenant = new Tenant(Guid.NewGuid(),request.Name);
             await _tenantRepository.AddAsync(tenant, cancellationToken);
             return tenant.Id;
         }

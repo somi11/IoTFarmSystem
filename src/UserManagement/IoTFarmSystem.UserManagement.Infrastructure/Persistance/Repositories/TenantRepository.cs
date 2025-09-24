@@ -18,14 +18,13 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 
         public async Task<Tenant?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-           return await _dbContext.Tenants
-             .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
-                 .ThenInclude(f => EF.Property<List<UserRole>>(f, "_roles"))
-                     .ThenInclude(ur => ur.Role)
-             .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
-                 .ThenInclude(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
-
+            return await _dbContext.Tenants
+                .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
+                    .ThenInclude(f => EF.Property<List<UserRole>>(f, "_roles"))
+                        .ThenInclude(ur => ur.Role)
+                .Include(t => EF.Property<List<Farmer>>(t, "_farmers"))
+                    .ThenInclude(f => EF.Property<List<UserPermission>>(f, "_permissions"))
+                .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         }
 
         public async Task<Tenant?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
@@ -56,58 +55,59 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
         public async Task<IReadOnlyList<Farmer>> GetFarmersByRoleAsync(Guid tenantId, string roleName, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Farmers
-                .Where(f => f.TenantId == tenantId && f.Roles.Any(r => _dbContext.Roles.Any(role => role.Id == r.RoleId && role.Name == roleName)))
+                .Where(f => f.TenantId == tenantId &&
+                            f.Roles.Any(r => _dbContext.Roles.Any(role => role.Id == r.RoleId && role.Name == roleName)))
                 .ToListAsync(cancellationToken);
         }
 
         public async Task<IReadOnlyList<Farmer>> GetFarmersByPermissionAsync(Guid tenantId, string permissionName, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Farmers
-                .Where(f => f.TenantId == tenantId && f.Permissions.Any(p => p.PermissionName == permissionName))
+                .Where(f => f.TenantId == tenantId &&
+                            f.Permissions.Any(p => p.PermissionName == permissionName))
                 .ToListAsync(cancellationToken);
         }
 
         // ============================
-        // CRUD operations
+        // CRUD operations (no SaveChanges here)
         // ============================
 
-        public async Task AddAsync(Tenant tenant, CancellationToken cancellationToken = default)
+        public Task AddAsync(Tenant tenant, CancellationToken cancellationToken = default)
         {
-            await _dbContext.Tenants.AddAsync(tenant, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return _dbContext.Tenants.AddAsync(tenant, cancellationToken).AsTask();
         }
 
-        public async Task UpdateAsync(Tenant tenant, CancellationToken cancellationToken = default)
+        public Task UpdateAsync(Tenant tenant, CancellationToken cancellationToken = default)
         {
             _dbContext.Tenants.Update(tenant);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteAsync(Tenant tenant, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(Tenant tenant, CancellationToken cancellationToken = default)
         {
             _dbContext.Tenants.Remove(tenant);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
         // ============================
         // Domain-level farmer ops
         // ============================
 
-        public async Task AddFarmerAsync(Tenant tenant, Farmer farmer, CancellationToken cancellationToken = default)
+        public Task AddFarmerAsync(Tenant tenant, Farmer farmer, CancellationToken cancellationToken = default)
         {
-            tenant.RegisterFarmer(farmer.IdentityUserId, farmer.Email , farmer.Name);
+            tenant.RegisterFarmer(Guid.NewGuid(), farmer.IdentityUserId, farmer.Email, farmer.Name);
             _dbContext.Tenants.Update(tenant);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
-        public async Task RemoveFarmerAsync(Tenant tenant, Farmer farmer, CancellationToken cancellationToken = default)
+        public Task RemoveFarmerAsync(Tenant tenant, Farmer farmer, CancellationToken cancellationToken = default)
         {
             var existingFarmer = tenant.Farmers.FirstOrDefault(f => f.Id == farmer.Id);
             if (existingFarmer != null)
             {
                 _dbContext.Farmers.Remove(existingFarmer);
-                await _dbContext.SaveChangesAsync(cancellationToken);
             }
+            return Task.CompletedTask;
         }
     }
 }
