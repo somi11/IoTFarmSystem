@@ -11,9 +11,7 @@ using IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmersByRole;
 using IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmersByTenant;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+
 
 namespace IoTFarmSystem.Host.Controllers
 {
@@ -81,7 +79,9 @@ namespace IoTFarmSystem.Host.Controllers
             if (id != command.FarmerId)
                 return BadRequest("Farmer ID mismatch");
 
-            await _mediator.Send(command);
+            var result = await _mediator.Send(command);
+            if (!result.Success)
+                return BadRequest(result.Error);
             return NoContent();
         }
 

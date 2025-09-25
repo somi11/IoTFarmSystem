@@ -24,11 +24,25 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
             var farmer = await _dbContext.Farmers
                 .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
                     .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => EF.Property<List<RolePermission>>(r, "_permissions"))
+                            .ThenInclude(rp => rp.Permission)  
                 .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
                 .FirstOrDefaultAsync(f => f.Id == farmerId, cancellationToken);
 
             if (farmer == null)
                 return null;
+
+            // Effective = role permissions ∪ explicit permissions
+            var rolePermissions = farmer.Roles
+                .SelectMany(r => r.Role.Permissions)
+                .Select(p => p.Permission.Name);
+
+            var explicitPermissions = farmer.ExplicitPermissions
+                .Select(p => p.PermissionName);
+
+            var effectivePermissions = rolePermissions
+                .Union(explicitPermissions)   // remove duplicates
+                .ToList();
 
             return new FarmerDto
             {
@@ -37,7 +51,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                 Email = farmer.Email,
                 Name = farmer.Name,
                 Roles = farmer.Roles.Select(r => r.Role.Name).ToList(),
-                Permissions = farmer.Permissions.Select(p => p.PermissionName).ToList()
+                Permissions = effectivePermissions
             };
         }
 
@@ -59,7 +73,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                 Email = farmer.Email,
                 Name = farmer.Name,
                 Roles = farmer.Roles.Select(r => r.Role.Name).ToList(),
-                Permissions = farmer.Permissions.Select(p => p.PermissionName).ToList()
+                Permissions = farmer.ExplicitPermissions.Select(p => p.PermissionName).ToList()
             };
         }
 
@@ -88,7 +102,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                     .Where(n => !string.IsNullOrEmpty(n))
                     .Distinct()
                     .ToList(),
-                Permissions = f.Permissions
+                Permissions = f.ExplicitPermissions
                     .Select(p => p.PermissionName)
                     .Where(n => !string.IsNullOrEmpty(n))
                     .Distinct()
@@ -161,7 +175,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                     .Where(n => !string.IsNullOrEmpty(n))
                     .Distinct()
                     .ToList(),
-                Permissions = f.Permissions
+                Permissions = f.ExplicitPermissions
                     .Select(p => p.PermissionName)
                     .Where(n => !string.IsNullOrEmpty(n))
                     .Distinct()
@@ -173,6 +187,16 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
             return result;
         }
 
+        public async Task<Farmer?> GetWithRolesAndPermissionsAsync(Guid farmerId, CancellationToken cancellationToken = default)
+        {
+            return await _dbContext.Farmers
+                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => EF.Property<List<RolePermission>>(r, "_permissions")) // include role permissions
+                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
+                    .ThenInclude(up => up.Permission)
+                .FirstOrDefaultAsync(f => f.Id == farmerId, cancellationToken);
+        }
 
         // ------------------ Mutating methods (no SaveChanges here) ------------------
 
@@ -216,7 +240,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 
         public Task RevokePermissionAsync(Farmer farmer, Permission permission, CancellationToken cancellationToken = default)
         {
-            farmer.RevokePermission(permission.Name);
+            farmer.RevokePermission(permission.Id);
             _dbContext.Farmers.Update(farmer);
             return Task.CompletedTask;
         }

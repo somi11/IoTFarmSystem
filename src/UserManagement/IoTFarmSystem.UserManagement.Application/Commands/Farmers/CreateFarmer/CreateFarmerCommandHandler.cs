@@ -64,7 +64,7 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
             // 4. Farmer aggregate root
             var farmer = tenant.RegisterFarmer(Guid.NewGuid(), identityUserId, request.Email, request.Name);
 
-            // 5. Assign roles + permissions
+            // 5. Assign roles (only store role links, do NOT duplicate permissions here)
             if (request.Roles != null)
             {
                 foreach (var roleName in request.Roles.Distinct())
@@ -74,18 +74,20 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
                         return Result<Guid>.Fail($"Role '{roleName}' not found in DB");
 
                     farmer.AssignRole(role);
-
-                    var rolePermissions = await _permissionLookup.GetByRoleAsync(role.Id, cancellationToken);
-                    foreach (var perm in rolePermissions)
-                        farmer.GrantPermission(perm);
                 }
             }
 
-            // 6. Explicit permissions
+            // 6. Assign explicit permissions (only these go into farmer._permissions)
             if (request.Permissions != null)
             {
-                var explicitPermissions = await _permissionLookup.GetByNamesAsync(request.Permissions.Distinct(), cancellationToken);
-                var missing = request.Permissions.Except(explicitPermissions.Select(p => p.Name)).ToList();
+                var explicitPermissions = await _permissionLookup.GetByNamesAsync(
+                    request.Permissions.Distinct(),
+                    cancellationToken);
+
+                var missing = request.Permissions
+                    .Except(explicitPermissions.Select(p => p.Name))
+                    .ToList();
+
                 if (missing.Any())
                     return Result<Guid>.Fail($"Invalid permissions: {string.Join(", ", missing)}");
 
@@ -93,7 +95,7 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
                     farmer.GrantPermission(perm);
             }
 
-            // 7. Persist all tracked changes via UnitOfWork
+            // 7. Commit unit of work
             await transaction.CommitAsync(cancellationToken);
 
             return Result<Guid>.Ok(farmer.Id);

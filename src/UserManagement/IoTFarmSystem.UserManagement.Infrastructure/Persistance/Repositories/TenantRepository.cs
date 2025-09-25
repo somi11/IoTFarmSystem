@@ -64,7 +64,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
         {
             return await _dbContext.Farmers
                 .Where(f => f.TenantId == tenantId &&
-                            f.Permissions.Any(p => p.PermissionName == permissionName))
+                            f.ExplicitPermissions.Any(p => p.PermissionName == permissionName))
                 .ToListAsync(cancellationToken);
         }
 

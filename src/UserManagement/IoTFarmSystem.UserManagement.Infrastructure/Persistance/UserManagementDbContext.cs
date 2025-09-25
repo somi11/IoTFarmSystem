@@ -56,7 +56,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
 
                 // Ignore public navigation properties to avoid mapping conflict
                 entity.Ignore(f => f.Roles);
-                entity.Ignore(f => f.Permissions);
+                entity.Ignore(f => f.ExplicitPermissions);
             });
 
             // ========================

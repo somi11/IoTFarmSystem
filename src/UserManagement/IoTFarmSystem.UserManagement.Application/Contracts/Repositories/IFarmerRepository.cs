@@ -21,6 +21,7 @@ namespace IoTFarmSystem.UserManagement.Application.Contracts.Repositories
         Task<Farmer?> GetWithRolesAsync(Guid farmerId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<FarmerDto>> GetByRoleNameAsync(Guid tenantId, string roleName, CancellationToken cancellationToken = default);
         Task<Farmer?> GetWithPermissionsAsync(Guid farmerId, CancellationToken cancellationToken = default);
+        Task<Farmer?> GetWithRolesAndPermissionsAsync(Guid farmerId, CancellationToken cancellationToken = default);
 
         // CRUD operations
         Task AddAsync(Farmer farmer, CancellationToken cancellationToken = default);

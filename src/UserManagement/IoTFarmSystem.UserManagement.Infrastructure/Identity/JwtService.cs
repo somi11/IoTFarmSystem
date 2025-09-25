@@ -70,7 +70,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Identity
                 }
 
                 // Permissions (still as names)
-                var domainPermissions = farmer.Permissions.Select(p => p.PermissionName).ToList();
+                var domainPermissions = farmer.ExplicitPermissions.Select(p => p.PermissionName).ToList();
                 claims.AddRange(domainPermissions.Select(p => new Claim("permission", p)));
             }
             else

@@ -1,4 +1,6 @@
-﻿using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
+using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using MediatR;
 using System.Threading;
@@ -6,40 +8,53 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.UpdateFarmer
 {
-    public class UpdateFarmerCommandHandler : IRequestHandler<UpdateFarmerCommand , Unit>
+    public class UpdateFarmerCommandHandler : IRequestHandler<UpdateFarmerCommand, Result<Unit>>
     {
         private readonly IFarmerRepository _farmerRepository;
-        private readonly IUserService _userService;
+        private readonly IUserService _userService; 
+        private readonly IUnitOfWork _unitOfWork;
+
         public UpdateFarmerCommandHandler(
-                   IFarmerRepository farmerRepository,
-                   IUserService userService)
+            IFarmerRepository farmerRepository,
+           IUnitOfWork unitOfWork,
+        IUserService userService)
         {
             _farmerRepository = farmerRepository;
+            _unitOfWork = unitOfWork;
             _userService = userService;
         }
 
-        public async Task<Unit> Handle(UpdateFarmerCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Unit>> Handle(UpdateFarmerCommand request, CancellationToken cancellationToken)
         {
-            var farmer = await _farmerRepository.GetEntityByIdAsync(request.FarmerId, cancellationToken)
-                             ?? throw new KeyNotFoundException($"Farmer '{request.FarmerId}' not found");
+            // Step 1: Load Farmer
+            var farmer = await _farmerRepository.GetEntityByIdAsync(request.FarmerId, cancellationToken);
+            if (farmer == null)
+                return Result<Unit>.Fail($"Farmer '{request.FarmerId}' not found");
 
-            // Update Name
+            // Step 2: Update Name
             if (!string.IsNullOrWhiteSpace(request.Name))
                 farmer.UpdateName(request.Name);
 
-            // Update Email (domain + Identity system)
+            // Step 3: Update Email (domain + Identity)
             if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != farmer.Email)
             {
-                // Update in Identity provider
-                await _userService.UpdateEmailAsync(farmer.IdentityUserId, request.Email, cancellationToken);
+                try
+                {
+                    await _userService.UpdateEmailAsync(farmer.IdentityUserId, request.Email, cancellationToken);
+                    farmer.UpdateEmail(request.Email);
+                }
+                catch (Exception ex)
+                {
+                    return Result<Unit>.Fail($"Failed to update email: {ex.Message}");
+                }
 
-                // Update in domain
                 farmer.UpdateEmail(request.Email);
             }
 
+            // Step 4: Persist domain changes
             await _farmerRepository.UpdateAsync(farmer, cancellationToken);
-            return Unit.Value;
+            await _unitOfWork.SaveChangesAsync();
+            return Result<Unit>.Ok(Unit.Value);
         }
-
     }
 }

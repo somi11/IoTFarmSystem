@@ -1,4 +1,6 @@
-﻿using IoTFarmSystem.UserManagement.Application.Commands.Farmers.GrantPermissionToFarmer;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using IoTFarmSystem.UserManagement.Application.Commands.Farmers.GrantPermissionToFarmer;
+using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using IoTFarmSystem.UserManagement.Application.Contracts.Services;
 using MediatR;
@@ -6,37 +8,50 @@ using MediatR;
 namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers
 {
     public class GrantPermissionToFarmerCommandHandler
-        : IRequestHandler<GrantPermissionToFarmerCommand, Unit>
+        : IRequestHandler<GrantPermissionToFarmerCommand, Result<Unit>>
     {
         private readonly IFarmerRepository _farmerRepository;
+        private readonly ITenantRepository _tenantRepository;
         private readonly IPermissionLookupService _permissionLookup;
+        private readonly IUnitOfWork _unitOfWork;
 
         public GrantPermissionToFarmerCommandHandler(
             IFarmerRepository farmerRepository,
-            IPermissionLookupService permissionLookup)
+            ITenantRepository tenantRepository,
+            IPermissionLookupService permissionLookup,
+            IUnitOfWork unitOfWork)
         {
             _farmerRepository = farmerRepository;
+            _tenantRepository = tenantRepository;
             _permissionLookup = permissionLookup;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<Unit> Handle(GrantPermissionToFarmerCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Unit>> Handle(GrantPermissionToFarmerCommand request, CancellationToken cancellationToken)
         {
-            // 1. Load farmer
-            var farmer = await _farmerRepository.GetWithRolesAsync(request.FarmerId, cancellationToken)
-                         ?? throw new KeyNotFoundException($"Farmer '{request.FarmerId}' not found");
+            // Step 1. Load farmer with permissions
+            var farmer = await _farmerRepository.GetWithPermissionsAsync(request.FarmerId, cancellationToken);
+            if (farmer == null)
+                return Result<Unit>.Fail($"Farmer '{request.FarmerId}' not found");
 
-            // 2. Look up permission in DB (not create new)
+            // Step 2. Load tenant to ensure farmer belongs to a valid tenant
+            var tenant = await _tenantRepository.GetByIdAsync(farmer.TenantId, cancellationToken);
+            if (tenant == null)
+                return Result<Unit>.Fail($"Tenant '{farmer.TenantId}' not found for farmer '{request.FarmerId}'");
+
+            // Step 3. Look up permission by Id
             var permission = await _permissionLookup.GetByNameAsync(request.PermissionName, cancellationToken);
-            if (permission is null)
-                throw new KeyNotFoundException($"Permission '{request.PermissionName}' not found in system.");
+            if (permission == null)
+                return Result<Unit>.Fail($"Permission '{request.PermissionName}' not found");
 
-            // 3. Grant to farmer
+            // Step 4. Grant to farmer
             farmer.GrantPermission(permission);
 
-            // 4. Persist
-            await _farmerRepository.GrantPermissionAsync(farmer, permission, cancellationToken);
+            // Step 5. Persist
+            await _farmerRepository.UpdateAsync(farmer, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return Unit.Value;
+            return Result<Unit>.Ok(Unit.Value);
         }
     }
 }
