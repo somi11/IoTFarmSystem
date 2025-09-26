@@ -20,19 +20,9 @@ namespace IoTFarmSystem.UserManagement.Application.Queries.Tenants.GetAllTenants
 
         public async Task<IReadOnlyList<TenantDto>> Handle(GetAllTenantsQuery request, CancellationToken cancellationToken)
         {
-            var tenants = await _tenantRepository.GetAllWithFarmersAsync(cancellationToken);
+            var tenants = await _tenantRepository.GetAllWithFarmersQueryAsync(cancellationToken);
 
-            return tenants.Select(t => new TenantDto
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Farmers = t.Farmers.Select(f => new FarmerSummaryDto
-                {
-                    Id = f.Id,
-                    Email = f.Email,
-                    Name = f.Name
-                }).ToList()
-            }).ToList();
+            return tenants;
         }
     }
 }

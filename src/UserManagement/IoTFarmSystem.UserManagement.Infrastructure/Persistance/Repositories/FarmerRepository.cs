@@ -2,6 +2,7 @@
 using IoTFarmSystem.UserManagement.Application.DTOs;
 using IoTFarmSystem.UserManagement.Domain.Entites;
 using Microsoft.EntityFrameworkCore;
+using System.Threading;
 
 namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
 {
@@ -22,59 +23,71 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
         public async Task<FarmerDto?> GetByIdAsync(Guid farmerId, CancellationToken cancellationToken = default)
         {
             var farmer = await _dbContext.Farmers
-                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
-                    .ThenInclude(ur => ur.Role)
-                        .ThenInclude(r => EF.Property<List<RolePermission>>(r, "_permissions"))
-                            .ThenInclude(rp => rp.Permission)  
-                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-                .FirstOrDefaultAsync(f => f.Id == farmerId, cancellationToken);
+                .Where(f => f.Id == farmerId)
+                .Select(f => new FarmerDto
+                {
+                    Id = f.Id,
+                    TenantId = f.TenantId,
+                    Email = f.Email,
+                    Name = f.Name,
 
-            if (farmer == null)
-                return null;
+                    Roles = EF.Property<List<UserRole>>(f, "_roles")
+                        .Select(r => r.Role.Name)
+                        .ToList(),
 
-            // Effective = role permissions ∪ explicit permissions
-            var rolePermissions = farmer.Roles
-                .SelectMany(r => r.Role.Permissions)
-                .Select(p => p.Permission.Name);
+                    Permissions = EF.Property<List<UserRole>>(f, "_roles")
+                        .SelectMany(r => EF.Property<List<RolePermission>>(r.Role, "_permissions")
+                            .Select(p => p.Permission.Name))
+                        .Union(EF.Property<List<UserPermission>>(f, "_permissions")
+                            .Select(p => p.Permission.Name))
+                        .ToList()
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-            var explicitPermissions = farmer.ExplicitPermissions
-                .Select(p => p.PermissionName);
+            return farmer;
 
-            var effectivePermissions = rolePermissions
-                .Union(explicitPermissions)   // remove duplicates
-                .ToList();
-
-            return new FarmerDto
-            {
-                Id = farmer.Id,
-                TenantId = farmer.TenantId,
-                Email = farmer.Email,
-                Name = farmer.Name,
-                Roles = farmer.Roles.Select(r => r.Role.Name).ToList(),
-                Permissions = effectivePermissions
-            };
         }
 
         public async Task<FarmerDto?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
+            //var farmer = await _dbContext.Farmers
+            //    .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
+            //        .ThenInclude(ur => ur.Role)
+            //    .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
+            //    .FirstOrDefaultAsync(f => f.Email == email, cancellationToken);
+
+            //if (farmer == null)
+            //    return null;
+
+            //return new FarmerDto
+            //{
+            //    Id = farmer.Id,
+            //    TenantId = farmer.TenantId,
+            //    Email = farmer.Email,
+            //    Name = farmer.Name,
+            //    Roles = farmer.Roles.Select(r => r.Role.Name).ToList(),
+            //    Permissions = farmer.ExplicitPermissions.Select(p => p.PermissionName).ToList()
+            //};
+
             var farmer = await _dbContext.Farmers
-                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
-                    .ThenInclude(ur => ur.Role)
-                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-                .FirstOrDefaultAsync(f => f.Email == email, cancellationToken);
-
-            if (farmer == null)
-                return null;
-
-            return new FarmerDto
-            {
-                Id = farmer.Id,
-                TenantId = farmer.TenantId,
-                Email = farmer.Email,
-                Name = farmer.Name,
-                Roles = farmer.Roles.Select(r => r.Role.Name).ToList(),
-                Permissions = farmer.ExplicitPermissions.Select(p => p.PermissionName).ToList()
-            };
+                        .Where(f => f.Email == email)
+                        .Select(f => new FarmerDto
+                        {
+                            Id = f.Id,
+                            TenantId = f.TenantId,
+                            Email = f.Email,
+                            Name = f.Name,
+                            Roles = EF.Property<List<UserRole>>(f, "_roles")
+                                      .Select(r => r.Role.Name)
+                                       .ToList(),
+                            Permissions = EF.Property<List<UserRole>>(f, "_roles")
+                            .SelectMany(r => EF.Property<List<RolePermission>>(r.Role, "_permissions")
+                            .Select(p => p.Permission.Name))
+                            .Union(EF.Property<List<UserPermission>>(f, "_permissions")
+                            .Select(p => p.Permission.Name))
+                        .ToList()
+                        }).FirstOrDefaultAsync(cancellationToken);
+            return farmer;
         }
 
 
@@ -83,31 +96,24 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
             CancellationToken cancellationToken = default)
         {
             var farmers = await _dbContext.Farmers
-                .Where(f => f.TenantId == tenantId)
-                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
-                    .ThenInclude(ur => ur.Role)
-                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-                    .ThenInclude(up => up.Permission)
-                .AsNoTracking()
-                .ToListAsync(cancellationToken);
-
-            return farmers.Select(f => new FarmerDto
-            {
-                Id = f.Id,
-                TenantId = f.TenantId,
-                Email = f.Email,
-                Name = f.Name,
-                Roles = f.Roles
-                    .Select(r => r.Role?.Name)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct()
-                    .ToList(),
-                Permissions = f.ExplicitPermissions
-                    .Select(p => p.PermissionName)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct()
-                    .ToList()
-            }).ToList();
+                      .Where(f => f.TenantId == tenantId)
+                      .Select(f => new FarmerDto
+                      {
+                          Id = f.Id,
+                          TenantId = f.TenantId,
+                          Email = f.Email,
+                          Name = f.Name,
+                          Roles = EF.Property<List<UserRole>>(f, "_roles")
+                                    .Select(r => r.Role.Name)
+                                     .ToList(),
+                          Permissions = EF.Property<List<UserRole>>(f, "_roles")
+                          .SelectMany(r => EF.Property<List<RolePermission>>(r.Role, "_permissions")
+                          .Select(p => p.Permission.Name))
+                          .Union(EF.Property<List<UserPermission>>(f, "_permissions")
+                          .Select(p => p.Permission.Name))
+                      .ToList()
+                      }).ToListAsync(cancellationToken);
+            return farmers;
         }
         public async Task<Farmer?> GetWithRolesAsync(Guid farmerId, CancellationToken cancellationToken = default)
         {
@@ -115,7 +121,30 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                 .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
                     .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(f => f.Id == farmerId, cancellationToken);
+
+
         }
+        public async Task<FarmerDto?> GetWithRolesQueryAsync(Guid farmerId, CancellationToken cancellationToken = default)
+        {
+            var farmer = await _dbContext.Farmers
+         .Where(f => f.Id == farmerId)
+         .Select(
+         f => new FarmerDto
+         {
+             Id = f.Id,
+             TenantId = f.TenantId,
+             Email = f.Email,
+             Name = f.Name,
+             Roles = EF.Property<List<UserRole>>(f, "_roles")
+                             .Select(r => r.Role.Name)
+                              .ToList()
+         }).FirstOrDefaultAsync(cancellationToken);
+
+            return farmer;
+
+
+        }
+
 
         public async Task<Farmer?> GetByIdentityUserIdAsync(string identityUserId, CancellationToken cancellationToken = default)
         {
@@ -134,58 +163,61 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                 .FirstOrDefaultAsync(f => f.Id == farmerId, cancellationToken);
         }
 
+        public async Task<FarmerDto?> GetWithPermissionsQueryAsync(Guid farmerId, CancellationToken cancellationToken = default)
+        {
+            var farmers = await _dbContext.Farmers
+          .Where(f => f.Id == farmerId)
+          .Select(f => new FarmerDto
+          {
+              Id = f.Id,
+              TenantId = f.TenantId,
+              Email = f.Email,
+              Name = f.Name,
+              Roles = EF.Property<List<UserRole>>(f, "_roles")
+                        .Select(r => r.Role.Name)
+                         .ToList(),
+              Permissions = EF.Property<List<UserRole>>(f, "_roles")
+              .SelectMany(r => EF.Property<List<RolePermission>>(r.Role, "_permissions")
+              .Select(p => p.Permission.Name))
+              .Union(EF.Property<List<UserPermission>>(f, "_permissions")
+              .Select(p => p.Permission.Name))
+          .ToList()
+          }).FirstOrDefaultAsync(cancellationToken);
+            return farmers;
+        }
         public async Task<IReadOnlyList<FarmerDto>> GetByRoleNameAsync(
             Guid tenantId,
             string roleName,
             CancellationToken cancellationToken = default)
         {
-            // Step 1: get farmer ids via a SQL-translatable join (UserRole -> Role -> Farmer)
-            var farmerIds = await (
-                from ur in _dbContext.Set<UserRole>()
-                join r in _dbContext.Set<Role>() on ur.RoleId equals r.Id
-                join f in _dbContext.Farmers on ur.UserId equals f.Id
-                where r.Name == roleName && f.TenantId == tenantId
-                select f.Id
-            )
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-            if (!farmerIds.Any())
-                return Array.Empty<FarmerDto>();
-
-            // Step 2: load farmers with backing-field includes (populate _roles/_permissions)
             var farmers = await _dbContext.Farmers
-                .Where(f => farmerIds.Contains(f.Id))
-                .Include(f => EF.Property<List<UserRole>>(f, "_roles"))
-                    .ThenInclude(ur => ur.Role)
-                .Include(f => EF.Property<List<UserPermission>>(f, "_permissions"))
-                    .ThenInclude(up => up.Permission)
+                .Where(f => f.TenantId == tenantId &&
+                            EF.Property<List<UserRole>>(f, "_roles").Any(ur => ur.Role.Name == roleName))
+                .Select(f => new FarmerDto
+                {
+                    Id = f.Id,
+                    TenantId = f.TenantId,
+                    Email = f.Email,
+                    Name = f.Name,
+
+                    Roles = EF.Property<List<UserRole>>(f, "_roles")
+                                    .Select(r => r.Role.Name)
+                                     .ToList(),
+                    Permissions = EF.Property<List<UserRole>>(f, "_roles")
+                          .SelectMany(r => EF.Property<List<RolePermission>>(r.Role, "_permissions")
+                          .Select(p => p.Permission.Name))
+                          .Union(EF.Property<List<UserPermission>>(f, "_permissions")
+                          .Select(p => p.Permission.Name))
+                      .ToList(),
+                    CreatedAt = null,   // not mapped in your model, placeholder
+                    LastLogin = null    // same
+                })
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            // Step 3: project to DTO in memory (safe and simple)
-            var result = farmers.Select(f => new FarmerDto
-            {
-                Id = f.Id,
-                TenantId = f.TenantId,
-                Email = f.Email,
-                Name = f.Name,
-                Roles = f.Roles
-                    .Select(rr => rr.Role?.Name)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct()
-                    .ToList(),
-                Permissions = f.ExplicitPermissions
-                    .Select(p => p.PermissionName)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct()
-                    .ToList(),
-                CreatedAt = null,
-                LastLogin = null
-            }).ToList();
-
-            return result;
+            return farmers;
         }
+
 
         public async Task<Farmer?> GetWithRolesAndPermissionsAsync(Guid farmerId, CancellationToken cancellationToken = default)
         {

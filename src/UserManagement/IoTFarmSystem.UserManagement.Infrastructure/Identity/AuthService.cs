@@ -38,18 +38,30 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Identity
             return await _jwtService.GenerateTokenAsync(identityUser.Id, cancellationToken);
         }
 
-        public async Task<bool> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
+        //public async Task<bool> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
+        //{
+        //    var userExists = await _userService.UserExistsAsync(email, cancellationToken);
+        //    if (!userExists) return false;
+
+        //    var identityUser = await _signInManager.UserManager.FindByEmailAsync(email);
+        //    if (identityUser == null) return false;
+
+        //    var token = await _signInManager.UserManager.GeneratePasswordResetTokenAsync(identityUser);
+
+        //    // TODO: send token via EmailService
+        //    return true;
+        //}
+        public async Task<string?> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
         {
             var userExists = await _userService.UserExistsAsync(email, cancellationToken);
-            if (!userExists) return false;
+            if (!userExists) return null;
 
             var identityUser = await _signInManager.UserManager.FindByEmailAsync(email);
-            if (identityUser == null) return false;
+            if (identityUser == null) return null;
 
             var token = await _signInManager.UserManager.GeneratePasswordResetTokenAsync(identityUser);
 
-            // TODO: send token via EmailService
-            return true;
+            return token; // return token instead of just true
         }
 
         public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword, CancellationToken cancellationToken = default)

@@ -36,13 +36,18 @@ namespace IoTFarmSystem.Host.Api.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
         {
-            var success = await _authService.ForgotPasswordAsync(request.Email, cancellationToken);
-            if (!success)
+            var token = await _authService.ForgotPasswordAsync(request.Email, cancellationToken);
+
+            if (string.IsNullOrEmpty(token))
                 return BadRequest(new { message = "Could not process forgot password request" });
 
-            return Ok(new { message = "Password reset link sent if email exists" });
+            // In real apps, you would send this via email. For now, return in API response
+            return Ok(new
+            {
+                message = "Password reset link generated",
+                token = token
+            });
         }
-
         /// <summary>
         /// Resets user password with token
         /// </summary>

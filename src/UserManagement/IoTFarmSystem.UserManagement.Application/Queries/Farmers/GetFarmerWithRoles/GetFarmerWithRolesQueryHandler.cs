@@ -1,4 +1,5 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
+using IoTFarmSystem.UserManagement.Application.DTOs;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerWithRoles
 {
-    public class GetFarmerWithRolesQueryHandler : IRequestHandler<GetFarmerWithRolesQuery, Farmer?>
+    public class GetFarmerWithRolesQueryHandler : IRequestHandler<GetFarmerWithRolesQuery, FarmerDto?>
     {
         private readonly IFarmerRepository _farmerRepository;
 
@@ -17,7 +18,7 @@ namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerWith
             _farmerRepository = farmerRepository;
         }
 
-        public async Task<Farmer?> Handle(GetFarmerWithRolesQuery request, CancellationToken cancellationToken) =>
-            await _farmerRepository.GetWithRolesAsync(request.FarmerId, cancellationToken);
+        public async Task<FarmerDto?> Handle(GetFarmerWithRolesQuery request, CancellationToken cancellationToken) =>
+            await _farmerRepository.GetWithRolesQueryAsync(request.FarmerId, cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using IoTFarmSystem.UserManagement.Domain.Entites;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 
 namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
@@ -20,6 +21,16 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance
         public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                optionsBuilder
+                    .EnableSensitiveDataLogging() // shows parameter values
+                    .EnableDetailedErrors()       // more info in exceptions
+                    .LogTo(Console.WriteLine, new[] { DbLoggerCategory.Database.Command.Name }, LogLevel.Information);
+            }
+        }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

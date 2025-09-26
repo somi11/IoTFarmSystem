@@ -5,8 +5,8 @@ using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
 using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using IoTFarmSystem.UserManagement.Application.Contracts.Services;
-using IoTFarmSystem.UserManagement.Domain.Entites;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, Result<Guid>>
 {
@@ -15,19 +15,22 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionLookupService _permissionLookup;
+    private readonly ILogger<CreateFarmerCommandHandler> _logger;
 
     public CreateFarmerCommandHandler(
         ITenantRepository tenantRepository,
         IUserService userService,
         IUnitOfWork unitOfWork,
         IRoleRepository roleRepository,
-        IPermissionLookupService permissionLookup)
+        IPermissionLookupService permissionLookup,
+        ILogger<CreateFarmerCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
         _userService = userService;
         _unitOfWork = unitOfWork;
         _roleRepository = roleRepository;
         _permissionLookup = permissionLookup;
+        _logger = logger;
     }
 
     public async Task<Result<Guid>> Handle(CreateFarmerCommand request, CancellationToken cancellationToken)
@@ -39,32 +42,26 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
 
         try
         {
-            // 1. Identity user
+            var tenant = await _tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
+            if (tenant is null)
+                return Result<Guid>.Fail("Tenant not found");
+
+            _logger.LogInformation("Tenant loaded: {TenantId}", tenant.Id);
+
             var identityUserId = await _userService.CreateUserAsync(request.Email, request.Password, cancellationToken);
 
-            // 2. Tenant
-            Tenant tenant;
-            if (request.TenantId.HasValue)
-            {
-                tenant = await _tenantRepository.GetByIdAsync(request.TenantId.Value, cancellationToken);
-                if (tenant is null)
-                    return Result<Guid>.Fail($"Tenant '{request.TenantId}' not found");
-            }
-            else
-            {
-                var tenantName = request.TenantName ?? $"{request.Name} Farm";
-                tenant = new Tenant(Guid.NewGuid(), tenantName);
-                await _tenantRepository.AddAsync(tenant, cancellationToken);
-            }
-
-            // 3. Owner rule
             if (request.Roles?.Contains(SystemRoles.TENANT_OWNER) == true && tenant.HasOwner())
                 return Result<Guid>.Fail("Each tenant can only have one owner.");
 
-            // 4. Farmer aggregate root
             var farmer = tenant.RegisterFarmer(Guid.NewGuid(), identityUserId, request.Email, request.Name);
+            _logger.LogInformation("Farmer registered: {FarmerId}", farmer.Id);
 
-            // 5. Assign roles (only store role links, do NOT duplicate permissions here)
+            ////for in memorydb
+            if (_unitOfWork.IsInMemoryDatabase())
+            {
+                _unitOfWork.DbContext.Set<Farmer>().Add(farmer);
+            }
+            // Assign roles
             if (request.Roles != null)
             {
                 foreach (var roleName in request.Roles.Distinct())
@@ -77,31 +74,24 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
                 }
             }
 
-            // 6. Assign explicit permissions (only these go into farmer._permissions)
+            // Assign permissions
             if (request.Permissions != null)
             {
-                var explicitPermissions = await _permissionLookup.GetByNamesAsync(
-                    request.Permissions.Distinct(),
-                    cancellationToken);
-
-                var missing = request.Permissions
-                    .Except(explicitPermissions.Select(p => p.Name))
-                    .ToList();
-
-                if (missing.Any())
-                    return Result<Guid>.Fail($"Invalid permissions: {string.Join(", ", missing)}");
-
+                var explicitPermissions = await _permissionLookup.GetByNamesAsync(request.Permissions.Distinct(), cancellationToken);
                 foreach (var perm in explicitPermissions)
                     farmer.GrantPermission(perm);
             }
 
-            // 7. Commit unit of work
+            _logger.LogInformation("Saving changes for Tenant {TenantId} with {FarmerCount} farmers.", tenant.Id, tenant.Farmers.Count);
             await transaction.CommitAsync(cancellationToken);
+
+            _logger.LogInformation("Transaction committed successfully for Farmer {FarmerId}", farmer.Id);
 
             return Result<Guid>.Ok(farmer.Id);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Error creating farmer.");
             await transaction.RollbackAsync(cancellationToken);
             return Result<Guid>.Fail($"Unexpected error: {ex.Message}");
         }

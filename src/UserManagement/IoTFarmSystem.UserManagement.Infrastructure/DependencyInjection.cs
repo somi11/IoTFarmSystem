@@ -10,6 +10,7 @@ using IoTFarmSystem.UserManagement.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Infrastructure
@@ -19,9 +20,21 @@ namespace IoTFarmSystem.UserManagement.Infrastructure
         public static IServiceCollection AddInfrastructure(this IServiceCollection services)
         {
             // Domain context
-            services.AddDbContext<UserManagementDbContext>(options =>
-                options.UseInMemoryDatabase("UserManagementDb"));
+            //services.AddDbContext<UserManagementDbContext>(options =>
+            //    options.UseInMemoryDatabase("UserManagementDb"));
 
+            services.AddDbContext<UserManagementDbContext>(options =>
+            {
+                options.UseInMemoryDatabase("UserManagementDb")
+                       .EnableSensitiveDataLogging()
+                       .EnableDetailedErrors()
+                       .UseLoggerFactory(LoggerFactory.Create(builder =>
+                       {
+                           builder.AddDebug();      // Output window
+                           builder.AddConsole();    // Console
+                       }))
+                       .LogTo(Console.WriteLine, LogLevel.Information);
+            });
             // Identity context
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("IdentityDb"));

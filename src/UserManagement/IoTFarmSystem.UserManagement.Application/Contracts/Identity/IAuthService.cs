@@ -17,7 +17,7 @@ namespace IoTFarmSystem.UserManagement.Application.Contracts.Identity
         /// <summary>
         /// Initiates a forgot password process (sends reset link/email).
         /// </summary>
-        Task<bool> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
+        Task<string> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Resets the password for a user given a token and new password.

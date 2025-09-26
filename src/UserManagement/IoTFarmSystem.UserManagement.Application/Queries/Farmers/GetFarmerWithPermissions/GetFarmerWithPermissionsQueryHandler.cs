@@ -1,11 +1,12 @@
 ﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
+using IoTFarmSystem.UserManagement.Application.DTOs;
 using MediatR;
 
 
 namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerWithPermissions
 {
 
-    public class GetFarmerWithPermissionsQueryHandler : IRequestHandler<GetFarmerWithPermissionsQuery, Farmer?>
+    public class GetFarmerWithPermissionsQueryHandler : IRequestHandler<GetFarmerWithPermissionsQuery, FarmerDto?>
     {
         private readonly IFarmerRepository _farmerRepository;
 
@@ -14,7 +15,7 @@ namespace IoTFarmSystem.UserManagement.Application.Queries.Farmers.GetFarmerWith
             _farmerRepository = farmerRepository;
         }
 
-        public async Task<Farmer?> Handle(GetFarmerWithPermissionsQuery request, CancellationToken cancellationToken) =>
-            await _farmerRepository.GetWithPermissionsAsync(request.FarmerId, cancellationToken);
+        public async Task<FarmerDto?> Handle(GetFarmerWithPermissionsQuery request, CancellationToken cancellationToken) =>
+            await _farmerRepository.GetWithPermissionsQueryAsync(request.FarmerId, cancellationToken);
     }
 }

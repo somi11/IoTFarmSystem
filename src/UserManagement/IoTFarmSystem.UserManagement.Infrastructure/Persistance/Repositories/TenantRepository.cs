@@ -1,4 +1,5 @@
-﻿using IoTFarmSystem.UserManagement.Domain.Entites;
+﻿using IoTFarmSystem.UserManagement.Application.DTOs;
+using IoTFarmSystem.UserManagement.Domain.Entites;
 using Microsoft.EntityFrameworkCore;
 
 namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
@@ -26,21 +27,70 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Persistance.Repositories
                     .ThenInclude(f => EF.Property<List<UserPermission>>(f, "_permissions"))
                 .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         }
-
-        public async Task<Tenant?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+        public async Task<TenantDto?> GetByIdQueryAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _dbContext.Tenants
-                .Include(t => t.Farmers)
-                .FirstOrDefaultAsync(t => t.Name == name, cancellationToken);
+            var tenant = await _dbContext.Tenants.Select(t => new TenantDto
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Farmers = EF.Property<List<Farmer>>(t, "_farmers")
+                .Select(f => new FarmerSummaryDto
+                {
+                    Id = f.Id,
+                    Email = f.Email,
+                    Name = f.Name
+                }).ToList()
+            }).FirstOrDefaultAsync(cancellationToken);
+            return tenant;
+        }
+
+public async Task<TenantDto?> GetByNameQueryAsync(string name, CancellationToken cancellationToken = default)
+        {
+            var tenant = await _dbContext.Tenants
+                .Where(t => t.Name == name)
+                .Select(t => new TenantDto
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Farmers = EF.Property<List<Farmer>>(t, "_farmers")
+                .Select(f => new FarmerSummaryDto
+                {
+                    Id = f.Id,
+                    Email = f.Email,
+                    Name = f.Name
+                }).ToList()
+            }).FirstOrDefaultAsync(cancellationToken);
+            return tenant;
         }
 
         public async Task<IReadOnlyList<Tenant>> GetAllWithFarmersAsync(CancellationToken cancellationToken = default)
         {
+            //return await _dbContext.Tenants
+            //    .Include(t => t.Farmers)
+            //    .ToListAsync(cancellationToken);
             return await _dbContext.Tenants
-                .Include(t => t.Farmers)
-                .ToListAsync(cancellationToken);
+                .Include(t => EF.Property<List<Farmer>>(t, "_farmers")).ToListAsync(cancellationToken);
+                    
         }
-
+        public async Task<IReadOnlyList<TenantDto>> GetAllWithFarmersQueryAsync(CancellationToken cancellationToken = default)
+        {
+            //return await _dbContext.Tenants
+            //    .Include(t => t.Farmers)
+            //    .ToListAsync(cancellationToken);
+            var tenants = await _dbContext.Tenants.Select(t => new TenantDto
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Farmers = EF.Property<List<Farmer>>(t, "_farmers")
+                .Select(f => new FarmerSummaryDto
+                {
+                    Id = f.Id,
+                    Email = f.Email,
+                    Name = f.Name
+                }).ToList()
+            }).ToListAsync(cancellationToken);
+            return tenants;
+        }
         // ============================
         // Tenant queries by farmer
         // ============================
