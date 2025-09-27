@@ -1,4 +1,5 @@
-﻿using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Tenants.UpdateTenant
 {
-    public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, Unit>
+    public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, Result<Unit>>
     {
         private readonly ITenantRepository _tenantRepository;
 
@@ -17,7 +18,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Tenants.UpdateTenant
             _tenantRepository = tenantRepository;
         }
 
-        public async Task<Unit> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Unit>> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
         {
             var tenant = await _tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
             if (tenant is null)
@@ -27,7 +28,7 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Tenants.UpdateTenant
 
             await _tenantRepository.UpdateAsync(tenant, cancellationToken);
 
-            return Unit.Value;
+            return Result<Unit>.Ok(Unit.Value);
         }
     }
 }

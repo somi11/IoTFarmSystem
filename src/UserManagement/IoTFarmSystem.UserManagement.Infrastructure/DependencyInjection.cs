@@ -1,4 +1,5 @@
-﻿using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
+﻿using IoTFarmSystem.UserManagement.Application.Contracts.Authorizatioon;
+using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
 using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
 using IoTFarmSystem.UserManagement.Application.Contracts.Services;
@@ -52,6 +53,7 @@ namespace IoTFarmSystem.UserManagement.Infrastructure
             // Application/Domain services
             services.AddScoped<IUserService, UserService>();      // Custom user manager
             services.AddScoped<IAuthService, AuthService>();      // Authentication service
+            services.AddScoped<IAuthorizationClaimsProvider,AuthorizationClaimsProvider>(); // Custom claims provider
             services.AddScoped<IJwtService, JwtService>();        // JWT generator
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IPermissionLookupService, PermissionLookupService>();

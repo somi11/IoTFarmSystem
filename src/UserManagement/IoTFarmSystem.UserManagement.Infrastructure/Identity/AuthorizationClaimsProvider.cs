@@ -70,5 +70,42 @@ namespace IoTFarmSystem.UserManagement.Infrastructure.Identity
 
             return roleNames.Distinct().ToList();
         }
+
+        public async Task<(Guid? FarmerId, Guid? TenantId, string? Email)> GetDomainIdentifiersAsync(
+            string identityUserId,
+            CancellationToken ct = default)
+        {
+            var identityUser = await _userManager.FindByIdAsync(identityUserId);
+            if (identityUser == null) return (null, null, null);
+
+            var farmer = await _farmerRepository.GetByIdentityUserIdAsync(identityUserId, ct);
+            if (farmer != null)
+            {
+                return (farmer.Id, farmer.TenantId, identityUser.Email);
+            }
+
+            return (null, null, identityUser.Email);
+        }
+
+        public async Task<IReadOnlyCollection<string>> GetEffectivePermissionsAsync(
+            string identityUserId,
+            CancellationToken ct = default)
+        {
+            var explicitPermissions = await GetPermissionsAsync(identityUserId, ct);
+            var roles = await GetRolesAsync(identityUserId, ct);
+
+            var allPermissions = new List<string>(explicitPermissions);
+
+            foreach (var roleName in roles)
+            {
+                var role = await _roleRepository.GetByNameAsync(roleName, ct);
+                if (role != null)
+                {
+                    allPermissions.AddRange(role.Permissions.Select(p => p.Permission.Name));
+                }
+            }
+
+            return allPermissions.Distinct().ToList();
+        }
     }
 }

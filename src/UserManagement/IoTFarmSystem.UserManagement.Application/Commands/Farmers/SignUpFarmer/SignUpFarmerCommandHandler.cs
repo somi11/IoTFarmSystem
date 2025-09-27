@@ -32,7 +32,8 @@ public class SignUpFarmerCommandHandler
                 Name: request.Name,
                 Email: request.Email,
                 Password: request.Password,
-                Roles: new[] { SystemRoles.TENANT_OWNER } // always owner in sign-up flow
+                Roles: new[] { SystemRoles.TENANT_OWNER }, // always owner in sign-up flow
+                IsSelfSignUp: true
             ),
             cancellationToken);
 

@@ -14,7 +14,8 @@ public record CreateFarmerCommand(
     string Email,
     string Password,
     IEnumerable<string>? Roles = null,
-    IEnumerable<string>? Permissions = null
+    IEnumerable<string>? Permissions = null,
+    bool IsSelfSignUp = false
 ) : IRequest<Result<Guid>>;
 
 }

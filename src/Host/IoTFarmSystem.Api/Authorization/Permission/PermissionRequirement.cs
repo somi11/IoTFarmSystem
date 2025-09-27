@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 
-namespace IoTFarmSystem.Api.Authorization.PermissionRequirement
+namespace IoTFarmSystem.Api.Authorization.Permission
 {
     public class PermissionRequirement : IAuthorizationRequirement
     {

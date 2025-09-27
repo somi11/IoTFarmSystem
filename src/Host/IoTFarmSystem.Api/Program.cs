@@ -1,3 +1,6 @@
+using IoTFarmSystem.Api.Authorization.Polices;
+using IoTFarmSystem.Api.Services;
+using IoTFarmSystem.SharedKernel.Abstractions;
 using IoTFarmSystem.SharedKernel.Security;
 using IoTFarmSystem.UserManagement.Application;
 using IoTFarmSystem.UserManagement.Infrastructure;
@@ -5,7 +8,6 @@ using IoTFarmSystem.UserManagement.Infrastructure.Identity;
 using IoTFarmSystem.UserManagement.Infrastructure.Persistance;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -18,7 +20,10 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 // --------------------- Application & Infrastructure ---------------------
 builder.Services.AddApplication();    // MediatR, Handlers
 builder.Services.AddInfrastructure(); // Repos, Services, Identity
-
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.ConfigureAuthorizationPolicies();
+//builder.Services.AddSingleton<IAuthorizationHandler, RoleRequirementHandler>();
+//builder.Services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
 // --------------------- Controllers ---------------------
 builder.Services.AddControllers();
 

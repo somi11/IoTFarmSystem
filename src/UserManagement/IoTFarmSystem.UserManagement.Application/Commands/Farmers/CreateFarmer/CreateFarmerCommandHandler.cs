@@ -15,6 +15,7 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionLookupService _permissionLookup;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<CreateFarmerCommandHandler> _logger;
 
     public CreateFarmerCommandHandler(
@@ -23,6 +24,7 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
         IUnitOfWork unitOfWork,
         IRoleRepository roleRepository,
         IPermissionLookupService permissionLookup,
+        ICurrentUserService currentUser,
         ILogger<CreateFarmerCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
@@ -30,6 +32,7 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
         _unitOfWork = unitOfWork;
         _roleRepository = roleRepository;
         _permissionLookup = permissionLookup;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -42,7 +45,32 @@ public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, R
 
         try
         {
-            var tenant = await _tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
+            Guid tenantId;
+            if (!request.IsSelfSignUp)
+            {
+                if (_currentUser.IsSystemAdmin())
+                {
+                    tenantId = request.TenantId;
+                }
+                else if (_currentUser.IsTenantOwner() || _currentUser.IsTenantAdmin())
+                {
+                    if (!_currentUser.TenantId.HasValue)
+                        return Result<Guid>.Fail("Tenant context is missing for current user.");
+
+                    tenantId = _currentUser.TenantId.Value;
+                }
+                else
+                {
+                    return Result<Guid>.Fail("You do not have permission to create farmers.");
+                }
+            }
+            else
+            {
+                // In self sign-up, TenantId comes from the SignUp handler
+                tenantId = request.TenantId;
+            }
+
+            var tenant = await _tenantRepository.GetByIdAsync(tenantId, cancellationToken);
             if (tenant is null)
                 return Result<Guid>.Fail("Tenant not found");
 
