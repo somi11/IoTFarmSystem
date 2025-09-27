@@ -1,81 +1,127 @@
-﻿using IoTFarmSystem.UserManagement.Application.Contracts;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using IoTFarmSystem.SharedKernel.Security;
+using IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer;
 using IoTFarmSystem.UserManagement.Application.Contracts.Identity;
 using IoTFarmSystem.UserManagement.Application.Contracts.Persistance;
 using IoTFarmSystem.UserManagement.Application.Contracts.Repositories;
-using IoTFarmSystem.UserManagement.Domain.Entites;
+using IoTFarmSystem.UserManagement.Application.Contracts.Services;
 using MediatR;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
+public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, Result<Guid>>
 {
-    public class CreateFarmerCommandHandler : IRequestHandler<CreateFarmerCommand, Guid>
+    private readonly ITenantRepository _tenantRepository;
+    private readonly IUserService _userService;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionLookupService _permissionLookup;
+    private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<CreateFarmerCommandHandler> _logger;
+
+    public CreateFarmerCommandHandler(
+        ITenantRepository tenantRepository,
+        IUserService userService,
+        IUnitOfWork unitOfWork,
+        IRoleRepository roleRepository,
+        IPermissionLookupService permissionLookup,
+        ICurrentUserService currentUser,
+        ILogger<CreateFarmerCommandHandler> logger)
     {
-        private readonly IFarmerRepository _farmerRepository;
-        private readonly IUserService _userService;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IRoleRepository _roleRepository;
+        _tenantRepository = tenantRepository;
+        _userService = userService;
+        _unitOfWork = unitOfWork;
+        _roleRepository = roleRepository;
+        _permissionLookup = permissionLookup;
+        _currentUser = currentUser;
+        _logger = logger;
+    }
 
-        public CreateFarmerCommandHandler(
-            IFarmerRepository farmerRepository,
-            IUserService userService,
-            IUnitOfWork unitOfWork,
-            IRoleRepository roleRepository)
+    public async Task<Result<Guid>> Handle(CreateFarmerCommand request, CancellationToken cancellationToken)
+    {
+        if (request.Roles?.Contains(SystemRoles.SYSTEM_ADMIN) == true)
+            return Result<Guid>.Fail("SystemAdmin cannot be created as a Farmer.");
+
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            _farmerRepository = farmerRepository;
-            _userService = userService;
-            _unitOfWork = unitOfWork;
-            _roleRepository = roleRepository;
+            Guid tenantId;
+            if (!request.IsSelfSignUp)
+            {
+                if (_currentUser.IsSystemAdmin())
+                {
+                    tenantId = request.TenantId;
+                }
+                else if (_currentUser.IsTenantOwner() || _currentUser.IsTenantAdmin())
+                {
+                    if (!_currentUser.TenantId.HasValue)
+                        return Result<Guid>.Fail("Tenant context is missing for current user.");
+
+                    tenantId = _currentUser.TenantId.Value;
+                }
+                else
+                {
+                    return Result<Guid>.Fail("You do not have permission to create farmers.");
+                }
+            }
+            else
+            {
+                // In self sign-up, TenantId comes from the SignUp handler
+                tenantId = request.TenantId;
+            }
+
+            var tenant = await _tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+            if (tenant is null)
+                return Result<Guid>.Fail("Tenant not found");
+
+            _logger.LogInformation("Tenant loaded: {TenantId}", tenant.Id);
+
+            var identityUserId = await _userService.CreateUserAsync(request.Email, request.Password, cancellationToken);
+
+            if (request.Roles?.Contains(SystemRoles.TENANT_OWNER) == true && tenant.HasOwner())
+                return Result<Guid>.Fail("Each tenant can only have one owner.");
+
+            var farmer = tenant.RegisterFarmer(Guid.NewGuid(), identityUserId, request.Email, request.Name);
+            _logger.LogInformation("Farmer registered: {FarmerId}", farmer.Id);
+
+            ////for in memorydb
+            if (_unitOfWork.IsInMemoryDatabase())
+            {
+                _unitOfWork.DbContext.Set<Farmer>().Add(farmer);
+            }
+            // Assign roles
+            if (request.Roles != null)
+            {
+                foreach (var roleName in request.Roles.Distinct())
+                {
+                    var role = await _roleRepository.GetByNameAsync(roleName, cancellationToken);
+                    if (role is null)
+                        return Result<Guid>.Fail($"Role '{roleName}' not found in DB");
+
+                    farmer.AssignRole(role);
+                }
+            }
+
+            // Assign permissions
+            if (request.Permissions != null)
+            {
+                var explicitPermissions = await _permissionLookup.GetByNamesAsync(request.Permissions.Distinct(), cancellationToken);
+                foreach (var perm in explicitPermissions)
+                    farmer.GrantPermission(perm);
+            }
+
+            _logger.LogInformation("Saving changes for Tenant {TenantId} with {FarmerCount} farmers.", tenant.Id, tenant.Farmers.Count);
+            await transaction.CommitAsync(cancellationToken);
+
+            _logger.LogInformation("Transaction committed successfully for Farmer {FarmerId}", farmer.Id);
+
+            return Result<Guid>.Ok(farmer.Id);
         }
-
-        public async Task<Guid> Handle(CreateFarmerCommand request, CancellationToken cancellationToken)
+        catch (Exception ex)
         {
-            await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
-            try
-            {
-                // 1. Create Identity user
-                var identityUserId = await _userService.CreateUserAsync(request.Email, request.Password, cancellationToken);
-
-                // 2. Create domain Farmer
-                var farmer = new Farmer(identityUserId, request.Email, request.TenantId);
-
-                // 3. Assign roles if provided
-                if (request.Roles != null)
-                {
-                    foreach (var roleName in request.Roles)
-                    {
-                        var role = await _roleRepository.GetByNameAsync(roleName, cancellationToken)
-                                   ?? throw new KeyNotFoundException($"Role '{roleName}' not found");
-                        farmer.AssignRole(role);
-                        await _farmerRepository.AssignRoleAsync(farmer, role, cancellationToken);
-                        await _userService.AssignRoleAsync(identityUserId, roleName, cancellationToken);
-                    }
-                }
-
-                // 4. Grant permissions if provided
-                if (request.Permissions != null)
-                {
-                    foreach (var permissionName in request.Permissions)
-                    {
-                        var permission = new Permission(permissionName); // create domain permission
-                        farmer.GrantPermission(permission);
-                        await _farmerRepository.GrantPermissionAsync(farmer, permission, cancellationToken);
-                    }
-                }
-
-                // 5. Persist Farmer
-                await _farmerRepository.AddAsync(farmer, cancellationToken);
-
-                await transaction.CommitAsync(cancellationToken);
-
-                return farmer.Id;
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
+            _logger.LogError(ex, "Error creating farmer.");
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<Guid>.Fail($"Unexpected error: {ex.Message}");
         }
     }
 }

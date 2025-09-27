@@ -20,20 +20,8 @@ namespace IoTFarmSystem.UserManagement.Application.Queries.Tenants.GetTenantByNa
 
         public async Task<TenantDto?> Handle(GetTenantByNameQuery request, CancellationToken cancellationToken)
         {
-            var tenant = await _tenantRepository.GetByNameAsync(request.Name, cancellationToken);
-            if (tenant is null) return null;
-
-            return new TenantDto
-            {
-                Id = tenant.Id,
-                Name = tenant.Name,
-                Farmers = tenant.Farmers.Select(f => new FarmerSummaryDto
-                {
-                    Id = f.Id,
-                    Email = f.Email,
-                    Name = f.Name
-                }).ToList()
-            };
+            var tenant = await _tenantRepository.GetByNameQueryAsync(request.Name, cancellationToken);
+            return tenant;
         }
     }
 }

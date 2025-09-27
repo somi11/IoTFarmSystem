@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,6 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.RevokeRoleFromFarmer
 {
-    public record RevokeRoleFromFarmerCommand(Guid FarmerId, string RoleName) : IRequest<Unit>;
+    public record RevokeRoleFromFarmerCommand(Guid FarmerId, string RoleName) : IRequest<Result<Unit>>;
 
 }

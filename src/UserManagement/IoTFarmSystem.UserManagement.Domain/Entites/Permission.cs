@@ -8,14 +8,18 @@ namespace IoTFarmSystem.UserManagement.Domain.Entites
 {
     public class Permission
     {
-        public Guid Id { get; private set; } = Guid.NewGuid();
+        public Guid Id { get; private set; }
         public string Name { get; private set; }
 
-        // Fix: Ensure 'Name' is initialized for non-nullable property
-        private Permission()
+        private Permission() { } // EF Core
+
+        public Permission(Guid id, string name)
         {
-            Name = string.Empty;
+            if (id == Guid.Empty)
+                throw new ArgumentException("Permission Id cannot be empty.", nameof(id));
+
+            Id = id;
+            Name = name ?? throw new ArgumentNullException(nameof(name));
         }
-        public Permission(string name) => Name = name;
     }
 }

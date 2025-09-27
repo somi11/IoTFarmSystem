@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,5 +12,5 @@ namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.UpdateFarmer
          Guid FarmerId,
          string? Name = null,
          string? Email = null
-     ) : IRequest<Unit>;
+     ) : IRequest<Result<Unit>>;
 }
