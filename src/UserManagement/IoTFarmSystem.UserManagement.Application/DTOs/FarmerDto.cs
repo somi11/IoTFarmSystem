@@ -16,7 +16,7 @@ namespace IoTFarmSystem.UserManagement.Application.DTOs
         public List<string> Roles { get; set; } = new(); // e.g. ["FarmerManager", "Viewer"]
         public List<string> Permissions { get; set; } = new(); // Flattened from roles
 
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
         public DateTime? LastLogin { get; set; }
     }
 }

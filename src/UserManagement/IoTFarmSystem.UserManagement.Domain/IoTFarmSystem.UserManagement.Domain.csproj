@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\IoTFarmSystem.SharedKernel\IoTFarmSystem.SharedKernel.csproj" />
+  </ItemGroup>
+
 </Project>

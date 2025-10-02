@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,12 +8,14 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Farmers.CreateFarmer
 {
-    public record CreateFarmerCommand(
-          string Name,
-          string Email,
-          string Password,
-          Guid TenantId,
-          IEnumerable<string>? Roles = null,
-          IEnumerable<string>? Permissions = null
-      ) : IRequest<Guid>;
+public record CreateFarmerCommand(
+    Guid TenantId,
+    string Name,
+    string Email,
+    string Password,
+    IEnumerable<string>? Roles = null,
+    IEnumerable<string>? Permissions = null,
+    bool IsSelfSignUp = false
+) : IRequest<Result<Guid>>;
+
 }

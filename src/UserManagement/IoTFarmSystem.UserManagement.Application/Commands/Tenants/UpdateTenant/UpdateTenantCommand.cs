@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using IoTFarmSystem.SharedKernel.Abstractions;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,5 +8,5 @@ using System.Threading.Tasks;
 
 namespace IoTFarmSystem.UserManagement.Application.Commands.Tenants.UpdateTenant
 {
-    public record UpdateTenantCommand(Guid TenantId, string Name) : IRequest<Unit>;
+    public record UpdateTenantCommand(Guid TenantId, string Name) : IRequest<Result<Unit>>;
 }
